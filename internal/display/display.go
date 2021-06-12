@@ -7,18 +7,22 @@ import (
 )
 
 type Display struct {
+	Debug bool
+
 	width, height int
 	scale         int
+	windowTitle   string
 
 	nextDisplay    *[32][64]bool
 	currentDisplay [32][64]bool
 }
 
-func NewDisplay(width, height, scale int) *Display {
+func NewDisplay(width, height, scale int, windowTitle string) *Display {
 	d := &Display{
 		width:  width,
 		height: height,
 		scale:  scale,
+		windowTitle: windowTitle,
 	}
 	return d
 }
@@ -37,7 +41,13 @@ func (d *Display) Draw(screen *ebiten.Image) {
 		for x := 0; x < 64; x += 1 {
 			var c color.Color
 			if d.currentDisplay[y][x] {
-				c = color.White
+				if x % 2 == 0 && d.Debug {
+					c = color.RGBA{
+						R: 255,
+					}
+				} else {
+					c = color.White
+				}
 			} else {
 				c = color.Black
 			}
@@ -52,7 +62,7 @@ func (d *Display) Layout(outsideWidth, outsideHeight int) (int, int) {
 
 func (d *Display) Start() error {
 	ebiten.SetWindowSize(d.width*d.scale, d.height*d.scale)
-	ebiten.SetWindowTitle("Hello, World!")
+	ebiten.SetWindowTitle(d.windowTitle)
 	return ebiten.RunGame(d)
 }
 
