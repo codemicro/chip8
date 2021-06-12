@@ -8,7 +8,7 @@ import (
 func main() {
 	disp := display.NewDisplay(64, 32, 5)
 
-	vm := vm2.NewChip8(disp)
+	vm := vm2.NewChip8(disp, 700)
 	go vm.Run()
 
 	if err := disp.Start(); err != nil {

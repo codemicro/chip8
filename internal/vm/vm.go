@@ -1,6 +1,9 @@
 package vm
 
-import "time"
+import (
+	"math/rand"
+	"time"
+)
 
 type memory [4*1024]byte
 
@@ -11,6 +14,7 @@ type uiDriver interface {
 
 type Chip8 struct {
 	ui uiDriver
+	clockSpeedHertz int
 
 	// Main memory
 	memory [4*1024]byte
@@ -26,12 +30,14 @@ type Chip8 struct {
 	v0, v1, v2, v3, v4, v5, v6, v7, v8, v9, va, vb, vc, vd, ve, vf [16]byte
 }
 
-func NewChip8(ui uiDriver) *Chip8 {
+func NewChip8(ui uiDriver, clockSpeedHertz int) *Chip8 {
 	// TODO: Load ROM here
 	// TODO: Font
 
 	c := &Chip8{
 		ui: ui,
+		clockSpeedHertz: clockSpeedHertz,
+
 		programCounter: 0x200,
 	}
 
@@ -55,15 +61,27 @@ func (c *Chip8) Run() {
 	go descendingLoop(&c.delay)
 	go descendingLoop(&c.sound)
 
-	for {
-		var disp [32][64]bool
-		disp[5][7] = true
-		c.ui.PublishNewDisplay(disp)
-		time.Sleep(time.Second)
+	ticker := time.NewTicker(time.Second / time.Duration(c.clockSpeedHertz))
+	defer ticker.Stop()
+	done := make(chan bool)
 
-		var disp2 [32][64]bool
-		disp2[5][12] = true
-		c.ui.PublishNewDisplay(disp2)
-		time.Sleep(time.Second)
+	n := 0
+
+MAINLOOP:
+	for {
+		select {
+		case <-done:
+			break MAINLOOP
+		case <-ticker.C:
+			if n == 30 {
+				var disp [32][64]bool
+				disp[rand.Intn(31)][rand.Intn(63)] = true
+				c.ui.PublishNewDisplay(disp)
+
+				n = 0
+			} else {
+				n += 1
+			}
+		}
 	}
 }

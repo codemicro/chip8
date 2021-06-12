@@ -1,7 +1,6 @@
 package display
 
 import (
-	"fmt"
 	"github.com/hajimehoshi/ebiten/v2"
 	"github.com/hajimehoshi/ebiten/v2/inpututil"
 	"image/color"
@@ -58,8 +57,8 @@ func (d *Display) Start() error {
 }
 
 func (d *Display) PublishNewDisplay(inp [32][64]bool) {
-	d.nextDisplay = &inp
-	fmt.Println("sent new display")
+	x := inp // copy
+	d.nextDisplay = &x
 }
 
 var inputTranslationTable = map[ebiten.Key]uint8{
