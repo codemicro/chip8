@@ -244,7 +244,7 @@ MAINLOOP:
 				case 0x18:
 					// FX18 - set sound timer to the value of VX
 					c.setSoundTimer()
-				case 0x0F:
+				case 0x0A:
 					// FX0A - blocks until a key is pressed. Stores that key's value in VX then continues.
 					c.getPressedKey()
 				case 0x1E:
