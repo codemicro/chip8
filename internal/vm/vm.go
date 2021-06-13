@@ -15,18 +15,28 @@ type uiDriver interface {
 type Chip8 struct {
 	Debug bool
 
+	// CopyRegistersOnShift affects `8XY6` and `8XYE`. If true, the value of VY will be copied into VX before a shift
+	// occurs.
+	CopyRegistersOnShift bool
+	// VariableOffsetRegister affects `BNNN`. If true, `BNNN` will act as `BXNN` and will jump to NNN + VX. Else, `BNNN`
+	// will jump to NNN + V0.
+	VariableOffsetRegister bool
+	// DisableSetFlagOnIrOverflow affects `FX1E`. If true, `FX1E` will not set VF. Else, it will set VF accordingly if
+	// the index register "overflows" above 0x0FFF.
+	DisableSetFlagOnIrOverflow bool
+
 	ui              uiDriver
 	clockSpeedHertz int
 	disp            [32][64]bool
 
 	// Main memory
-	memory [4 * 1024]byte
+	memory memory
 
 	// Registers
 	cir   [2]byte // current instruction register
 	pc    uint16  // program counter
 	ir    uint16  // index register
-	stack Stack
+	stack Stack   // call stack
 	delay uint8
 	sound uint8
 
@@ -35,7 +45,6 @@ type Chip8 struct {
 }
 
 func NewChip8(rom []byte, ui uiDriver, clockSpeedHertz int) *Chip8 {
-	// TODO: Load ROM here
 	// TODO: Font
 
 	c := &Chip8{
@@ -45,32 +54,31 @@ func NewChip8(rom []byte, ui uiDriver, clockSpeedHertz int) *Chip8 {
 		pc: 0x200,
 	}
 
+	// load ROM
 	for i, b := range rom {
 		c.memory[int(c.pc) + i] = b
 	}
 
+	loadFont(&c.memory)
+
 	return c
 }
 
-// descendingLoop decrements *v by 1 every 1/60 of a second
-func descendingLoop(v *uint8) {
-	delay := time.Second / 60
-	go func() {
-		if *v == 0 {
-			*v = 255
-		} else {
-			*v -= 1
-		}
-		time.Sleep(delay)
-	}()
+// decrement decrements *v by 1 if it's not zero
+func decrement(v *uint8) {
+	if *v != 0 {
+		*v -= 1
+	}
 }
 
 func (c *Chip8) Run() {
-	go descendingLoop(&c.delay)
-	go descendingLoop(&c.sound)
 
-	ticker := time.NewTicker(time.Second / time.Duration(c.clockSpeedHertz))
-	defer ticker.Stop()
+	programTicker := time.NewTicker(time.Second / time.Duration(c.clockSpeedHertz))
+	defer programTicker.Stop()
+
+	decrementTicker := time.NewTicker(time.Second / 60)
+	defer decrementTicker.Stop()
+
 	done := make(chan bool)
 
 MAINLOOP:
@@ -78,7 +86,11 @@ MAINLOOP:
 		select {
 		case <-done:
 			break MAINLOOP
-		case <-ticker.C:
+		case <-decrementTicker.C:
+			decrement(&c.delay)
+			decrement(&c.sound)
+			// TODO: Make noise!
+		case <-programTicker.C:
 
 			// FETCH
 			c.cir[0] = c.memory[c.pc]
@@ -86,11 +98,11 @@ MAINLOOP:
 			c.pc += 2
 
 			if c.Debug {
-				fmt.Printf("DEBUG: 0x%04x\n", c.cir)
+				fmt.Printf("DEBUG: pc:0x%04x cir:0x%04x\n", c.pc - 2, c.cir)
 			}
 
-			// DECODE
-			switch c.cir[0] & 0xF0 { // first four bytes
+			// DECODE + EXECUTE
+			switch c.cir[0] & 0xF0 { // first four bits
 			case 0x00:
 
 				switch c.cir {
@@ -101,7 +113,7 @@ MAINLOOP:
 					// 00EE - subroutine return
 					c.subroutineReturn()
 				default:
-					fmt.Printf("UNHANDLED at %x: %x\n", c.pc, c.cir)
+					panic(fmt.Errorf("UNHANDLED at %x: %x\n", c.pc, c.cir))
 				}
 
 			case 0x10:
@@ -126,11 +138,47 @@ MAINLOOP:
 
 			case 0x60:
 				// 6XNN - set VX to NN
-				c.setRegister()
+				c.setRegisterToConstant()
 
 			case 0x70:
-				// 7XNN - add NN to VX
-				c.addToRegister()
+				// 7XNN - add NN to VX without setting carry flag
+				c.addConstantToRegister()
+
+			case 0x80:
+				// Logical and arithmetic instructions
+				switch c.cir[1] & 0x0F { // switch on the last four bits - eg 00000000 00001111
+				case 0x00:
+					// 8XY0 - set VX to VY
+					c.setRegisterToRegister()
+				case 0x01:
+					// 8XY1 - set VX to logical OR of VX and VY
+					c.setRegisterToLogicalOr()
+				case 0x02:
+					// 8XY2 - set VX to logical AND of VX and VY
+					c.setRegisterToLogicalAnd()
+				case 0x03:
+					// 8XY3 - set VX to logical XOR of VX and VY
+					c.setRegisterToLogicalXor()
+				case 0x04:
+					// 8XY4 - set VX to the sum of VX and VY then set the carry flag as appropriate
+					c.setRegisterToSum()
+				case 0x05:
+					// 8XY5 - set VX to VX - VY then set the carry flag as appropriate
+					c.setRegisterToDifferenceA()
+				case 0x06:
+					// 8XY6 - set VX to VY (if CopyRegistersOnShift), shift the value of VX 1 bit right and set VF to
+					// the bit shifted out
+					c.shiftRight()
+				case 0x07:
+					// 8XY7 - set VX to VY - VX then set the carry flag as appropriate
+					c.setRegisterToDifferenceB()
+				case 0x0E:
+					// 8XYE - set VX to VY (if CopyRegistersOnShift), shift the value of VX 1 bit left and set VF to the
+					// bit shifted out
+					c.shiftLeft()
+				default:
+					panic(fmt.Errorf("UNHANDLED at %x: %x\n", c.pc, c.cir))
+				}
 
 			case 0x90:
 				// 9XYN - skip one if registers not equal
@@ -140,12 +188,58 @@ MAINLOOP:
 				// ANNN - set index register to constant
 				c.setIndexRegister()
 
+			case 0xB0:
+				// BNNN - set PC to NNN + V0 - if VariableOffsetRegister, BXNN - set PC to XNN + VX
+				c.jumpWithOffset()
+
+			case 0xC0:
+				// CXNN - generate a random byte, AND it with NN and store in VX
+				c.random()
+
 			case 0xD0:
 				// DXYN - display
 				c.display()
 
+			case 0xE0:
+				// Input
+				switch c.cir[1] {
+				case 0x9E:
+					// EX9E - skip one if key with the value stored in VX is pressed
+					c.skipIfKey()
+				case 0xA1:
+					// EXA1 - skip one if key with the value stored in VX is not pressed
+					c.skipIfNotKey()
+				default:
+					panic(fmt.Errorf("UNHANDLED at %x: %x\n", c.pc, c.cir))
+				}
+
+			case 0xF0:
+				switch c.cir[1] {
+				case 0x07:
+					// FX07 - set value of VX to the current value of the delay timer
+					c.getDelayTimer()
+				case 0x15:
+					// FX15 - set delay timer to value of VX
+					c.setDelayTimer()
+				case 0x18:
+					// FX18 - set sound timer to the value of VX
+					c.setSoundTimer()
+				case 0x0F:
+					// FX0A - blocks until a key is pressed. Stores that key's value in VX then continues.
+					c.getPressedKey()
+				case 0x1E:
+					// FX1E - adds the value of VX to the index register and set VF accordingly if the index register
+					// "overflows" above 0x0FFF
+					c.addToIndexRegister()
+				case 0x29:
+					// FX29 - set the index register to the address of the hex character in VX
+					c.getFontCharacter()
+				default:
+					panic(fmt.Errorf("UNHANDLED at %x: %x\n", c.pc, c.cir))
+				}
+
 			default:
-				fmt.Printf("UNHANDLED at %x: %x\n", c.pc, c.cir)
+				panic(fmt.Errorf("UNHANDLED at %x: %x\n", c.pc, c.cir))
 			}
 
 		}

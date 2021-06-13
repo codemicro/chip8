@@ -19,7 +19,7 @@ func main() {
 	//disp.Debug = true
 
 	vm := vm2.NewChip8(fcont, disp, 700)
-	//vm.Debug = true
+	// vm.Debug = true
 	go vm.Run()
 
 	if err = disp.Start(); err != nil {

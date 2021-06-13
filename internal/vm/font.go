@@ -19,6 +19,18 @@ var font = [16][5]byte{
 	{0xF0, 0x80, 0xF0, 0x80, 0x80}, // F
 }
 
-func loadFont(memory *memory, location int) {
-	// TODO: implement loadFont
+const fontLocation uint16 = 0x50
+
+func loadFont(memory *memory) {
+
+	for i, letter := range font {
+		for j, bt := range letter {
+			memory[int(fontLocation)+(i*5)+j] = bt
+		}
+	}
+
+}
+
+func getFontCharacterLocation(character byte) uint16 {
+	return fontLocation + uint16(5 * (character & 0x0F))
 }

@@ -1,5 +1,13 @@
 package vm
 
+import (
+	"encoding/binary"
+	"math/rand"
+	"time"
+)
+
+var random = rand.New(rand.NewSource(time.Now().UnixNano()))
+
 // clearScreen - 00E0
 func (c *Chip8) clearScreen() {
 	c.disp = [32][64]bool{}
@@ -50,18 +58,131 @@ func (c *Chip8) skipEqRegReg() {
 	}
 }
 
-// setRegister - 6XNN set VX to NN
-func (c *Chip8) setRegister() {
+// setRegisterToConstant - 6XNN set VX to NN
+func (c *Chip8) setRegisterToConstant() {
 	nn := c.get8bitConstant()
 	vx := c.getRegisterPointer(c.cir[0] & 0x0F)
 	*vx = nn
 }
 
-// addToRegister - 7XNN add NN to VX
-func (c *Chip8) addToRegister() {
+// addConstantToRegister - 7XNN add NN to VX without setting carry flag
+func (c *Chip8) addConstantToRegister() {
 	nn := c.get8bitConstant()
 	vx := c.getRegisterPointer(c.cir[0] & 0x0F)
 	*vx += nn
+}
+
+// setRegisterToRegister - 8XY0 set VX to VY
+func (c *Chip8) setRegisterToRegister() {
+	vx := c.getRegisterPointer(c.cir[0] & 0x0F)
+	vy := c.getRegisterPointer(c.cir[0] >> 4)
+	*vx = *vy
+}
+
+// setRegisterToLogicalOr - 8XY1 set VX to logical OR of VX and VY
+func (c *Chip8) setRegisterToLogicalOr(){
+	vx := c.getRegisterPointer(c.cir[0] & 0x0F)
+	vy := c.getRegisterPointer(c.cir[0] >> 4)
+	*vx = *vx | *vy
+}
+
+// setRegisterToLogicalAnd - 8XY2 set VX to logical AND of VX and VY
+func (c *Chip8) setRegisterToLogicalAnd(){
+	vx := c.getRegisterPointer(c.cir[0] & 0x0F)
+	vy := c.getRegisterPointer(c.cir[0] >> 4)
+	*vx = *vx & *vy
+}
+
+// setRegisterToLogicalXor - 8XY3 set VX to logical XOR of VX and VY
+func (c *Chip8) setRegisterToLogicalXor(){
+	vx := c.getRegisterPointer(c.cir[0] & 0x0F)
+	vy := c.getRegisterPointer(c.cir[0] >> 4)
+	*vx = *vx ^ *vy
+}
+
+// setRegisterToSum - 8XY4 set VX to the sum of VX and VY then set the carry flag as appropriate
+func (c *Chip8) setRegisterToSum() {
+	vx := c.getRegisterPointer(c.cir[0] & 0x0F)
+	vy := c.getRegisterPointer(c.cir[0] >> 4)
+	vf := &c.vf
+
+	res := int(*vx) + int(*vy)
+
+	*vx += *vy
+
+	if res > 255 {
+		*vf = 0x01
+	} else {
+		*vf = 0x00
+	}
+}
+
+// setRegisterToDifferenceA - 8XY5 set VX to VX - VY then set the carry flag as appropriate
+func (c *Chip8) setRegisterToDifferenceA() {
+	vx := c.getRegisterPointer(c.cir[0] & 0x0F)
+	vy := c.getRegisterPointer(c.cir[0] >> 4)
+	vf := &c.vf
+
+	setCarry := *vx > *vy
+
+	*vx -= *vy
+
+	if setCarry {
+		*vf = 0x01
+	} else {
+		*vf = 0x00
+	}
+}
+
+// shiftRight - 8XY6 set VX to VY (if CopyRegistersOnShift), shift the value of VX 1 bit right and set VF to the bit
+// shifted out
+func (c *Chip8) shiftRight() {
+	vx := c.getRegisterPointer(c.cir[0] & 0x0F)
+	vf := &c.vf
+
+	if c.CopyRegistersOnShift {
+		vy := c.getRegisterPointer(c.cir[0] >> 4)
+		*vx = *vy
+	}
+
+	shiftedBit := *vx & 0x01
+
+	*vx = *vx >> 1
+	*vf = shiftedBit
+}
+
+// shiftLeft - 8XYE set VX to VY (if CopyRegistersOnShift), shift the value of VX 1 bit left and set VF to the bit
+// shifted out
+func (c *Chip8) shiftLeft() {
+	vx := c.getRegisterPointer(c.cir[0] & 0x0F)
+	vf := &c.vf
+
+	if c.CopyRegistersOnShift {
+		vy := c.getRegisterPointer(c.cir[0] >> 4)
+		*vx = *vy
+	}
+
+	shiftedBit := (*vx & 0x80) >> 7
+
+	*vx = *vx << 1
+	*vf = shiftedBit
+}
+
+// setRegisterToDifferenceB - 8XY7 set VX to VY - VX then set the carry flag as appropriate
+func (c *Chip8) setRegisterToDifferenceB() {
+	vx := c.getRegisterPointer(c.cir[0] & 0x0F)
+	vy := c.getRegisterPointer(c.cir[0] >> 4)
+	vf := &c.vf
+
+	setCarry := *vx < *vy
+
+	*vx = *vy - *vx
+
+	if setCarry {
+		*vf = 0x01
+	} else {
+		*vf = 0x00
+	}
 }
 
 // skipNotEqRegReg - 9XY0 skip one if registers not equal
@@ -76,6 +197,29 @@ func (c *Chip8) skipNotEqRegReg() {
 // setIndexRegister - ANNN set index register to NNN
 func (c *Chip8) setIndexRegister() {
 	c.ir = c.getAddressFromCIR()
+}
+
+// jumpWithOffset - BNNN set PC to NNN + V0 - if VariableOffsetRegister, BXNN set PC to XNN + VX
+func (c *Chip8) jumpWithOffset() {
+	nnn := c.getAddressFromCIR()
+	offset := c.v0
+
+	if c.VariableOffsetRegister {
+		offset = *c.getRegisterPointer(c.cir[0] & 0x0F)
+	}
+
+	c.pc = nnn + uint16(offset)
+}
+
+// random - CXNN generate a random byte, AND it with NN and store in VX
+func (c *Chip8) random() {
+	rnd := make([]byte, 4)
+	binary.BigEndian.PutUint32(rnd, random.Uint32())
+
+	vx := c.getRegisterPointer(c.cir[0] & 0x0F)
+	nn := c.get8bitConstant()
+
+	*vx = rnd[0] & nn
 }
 
 // display - DXYN draw an N pixel tall sprite from the memory location in the index register at the coordinate of the
@@ -117,4 +261,78 @@ func (c *Chip8) display() {
 	}
 
 	c.ui.PublishNewDisplay(c.disp)
+}
+
+// skipIfKey - EX9E skip one if key with the value stored in VX is pressed
+func (c *Chip8) skipIfKey() {
+	vxn := *c.getRegisterPointer(c.cir[0] & 0x0F)
+	pressedKeys := c.ui.GetPressedKeys()
+
+	for _, key := range pressedKeys {
+		if key == vxn {
+			c.pc += 2
+			break
+		}
+	}
+}
+
+// skipIfNotKey - EXA1 skip one if key with the value stored in VX is not pressed
+func (c *Chip8) skipIfNotKey() {
+	vxn := *c.getRegisterPointer(c.cir[0] & 0x0F)
+	pressedKeys := c.ui.GetPressedKeys()
+
+	for _, key := range pressedKeys {
+		if key == vxn {
+			return
+		}
+	}
+	c.pc += 2
+}
+
+// getDelayTimer - FX07 set value of VX to the current value of the delay timer
+func (c *Chip8) getDelayTimer() {
+	*c.getRegisterPointer(c.cir[0] & 0x0F) = c.delay
+}
+
+// setDelayTimer - FX15 set delay timer to value of VX
+func (c *Chip8) setDelayTimer() {
+	c.delay = *c.getRegisterPointer(c.cir[0] & 0x0F)
+}
+
+// setSoundTimer - FX18 set sound timer to the value of VX
+func (c *Chip8) setSoundTimer() {
+	c.sound = *c.getRegisterPointer(c.cir[0] & 0x0F)
+}
+
+// getPressedKey - FX0A blocks until a key is pressed. Stores that key's value in VX then continues.
+func (c *Chip8) getPressedKey() {
+	// TODO: On the original COSMAC VIP, the key was only registered when it was pressed and then released.
+
+	pressedKeys := c.ui.GetPressedKeys()
+	if len(pressedKeys) == 0 {
+		// block
+		c.pc -= 2
+		return
+	}
+
+	*c.getRegisterPointer(c.cir[0] & 0x0F) = pressedKeys[0]
+}
+
+// addToIndexRegister - FX1E adds the value of VX to the index register and set VF accordingly if the index register
+// "overflows" above 0x0FFF. Setting VF does not occur if DisableSetFlagOnIrOverflow is true.
+func (c *Chip8) addToIndexRegister() {
+	c.ir += uint16(*c.getRegisterPointer(c.cir[0] & 0x0F))
+
+	if !c.DisableSetFlagOnIrOverflow {
+		if c.ir > 0x0FFF {
+			c.vf = 0x01
+		} else {
+			c.vf = 0x00
+		}
+	}
+}
+
+// getFontCharacter - FX29 set the index register to the address of the hex character in VX
+func (c *Chip8) getFontCharacter() {
+	c.ir = getFontCharacterLocation(*c.getRegisterPointer(c.cir[0] & 0x0F))
 }

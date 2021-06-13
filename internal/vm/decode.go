@@ -14,14 +14,17 @@ func (c *Chip8) getAddressFromCIR() uint16 {
 	})
 }
 
+// get8bitConstant gets a constant from position xxNN
 func (c *Chip8) get8bitConstant() byte {
 	return c.cir[1]
 }
 
+// get4BitConstant gets a constant from position xxxN
 func (c *Chip8) get4BitConstant() byte {
 	return c.cir[1] & 0x0F
 }
 
+// getRegisterPointer gets a pointer to a one of the general purpose registers based on the value provided to it.
 func (c *Chip8) getRegisterPointer(register byte) *byte {
 	switch register {
 	case 0x00:
