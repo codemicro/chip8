@@ -1,13 +1,16 @@
-package display
+package ui
 
 import (
 	"github.com/hajimehoshi/ebiten/v2"
+	"github.com/hajimehoshi/ebiten/v2/audio"
 	"github.com/hajimehoshi/ebiten/v2/inpututil"
 	"image/color"
 )
 
-type Display struct {
+type UI struct {
 	Debug bool
+
+	audioPlayer *audio.Player
 
 	width, height int
 	scale         int
@@ -17,21 +20,29 @@ type Display struct {
 	currentDisplay [32][64]bool
 }
 
-func NewDisplay(width, height, scale int, windowTitle string) *Display {
-	d := &Display{
+func NewUI(width, height, scale int, windowTitle string) (*UI, error) {
+
+	p, err := audio.NewPlayer(audioContext, &stream{})
+	if err != nil {
+		return nil, err
+	}
+
+	d := &UI{
 		width:  width,
 		height: height,
 		scale:  scale,
 		windowTitle: windowTitle,
+
+		audioPlayer: p,
 	}
-	return d
+	return d, nil
 }
 
-func (*Display) Update() error {
+func (*UI) Update() error {
 	return nil
 }
 
-func (d *Display) Draw(screen *ebiten.Image) {
+func (d *UI) Draw(screen *ebiten.Image) {
 
 	if d.nextDisplay != nil {
 		d.currentDisplay, d.nextDisplay = *d.nextDisplay, nil
@@ -46,27 +57,37 @@ func (d *Display) Draw(screen *ebiten.Image) {
 						R: 255,
 					}
 				} else {
-					c = color.White
+					// c = color.White
+					c = color.RGBA{
+						R: 0x3D,
+						G: 0x80,
+						B: 0x26,
+					}
 				}
 			} else {
-				c = color.Black
+				// c = color.Black
+				c = color.RGBA{
+					R: 0xF9,
+					G: 0xFF,
+					B: 0xB3,
+				}
 			}
 			screen.Set(x, y, c)
 		}
 	}
 }
 
-func (d *Display) Layout(outsideWidth, outsideHeight int) (int, int) {
+func (d *UI) Layout(outsideWidth, outsideHeight int) (int, int) {
 	return d.width, d.height
 }
 
-func (d *Display) Start() error {
+func (d *UI) Start() error {
 	ebiten.SetWindowSize(d.width*d.scale, d.height*d.scale)
 	ebiten.SetWindowTitle(d.windowTitle)
 	return ebiten.RunGame(d)
 }
 
-func (d *Display) PublishNewDisplay(inp [32][64]bool) {
+func (d *UI) PublishNewDisplay(inp [32][64]bool) {
 	x := inp // copy
 	d.nextDisplay = &x
 }
@@ -90,7 +111,7 @@ var inputTranslationTable = map[ebiten.Key]uint8{
 	ebiten.KeyV:      0x0F,
 }
 
-func (d *Display) GetPressedKeys() []uint8 {
+func (d *UI) GetPressedKeys() []uint8 {
 	var o []uint8
 
 	for _, p := range inpututil.PressedKeys() {
@@ -100,4 +121,16 @@ func (d *Display) GetPressedKeys() []uint8 {
 	}
 
 	return o
+}
+
+func (d *UI) StartTone() {
+	if !d.audioPlayer.IsPlaying() {
+		d.audioPlayer.Play()
+	}
+}
+
+func (d *UI) StopTone() {
+	if d.audioPlayer.IsPlaying() {
+		d.audioPlayer.Pause()
+	}
 }

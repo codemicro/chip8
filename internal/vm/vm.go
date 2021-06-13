@@ -10,6 +10,8 @@ type memory [4 * 1024]byte
 type uiDriver interface {
 	PublishNewDisplay([32][64]bool)
 	GetPressedKeys() []uint8
+	StartTone()
+	StopTone()
 }
 
 type Chip8 struct {
@@ -109,6 +111,13 @@ MAINLOOP:
 		case <-decrementTicker.C:
 			decrement(&c.delay)
 			decrement(&c.sound)
+
+			if c.sound == 0 {
+				c.ui.StopTone()
+			} else {
+				c.ui.StartTone()
+			}
+
 			// TODO: Make noise!
 		case <-programTicker.C:
 
@@ -119,6 +128,11 @@ MAINLOOP:
 
 			if c.Debug {
 				fmt.Printf("DEBUG: pc:0x%04x cir:0x%04x\n", c.pc - 2, c.cir)
+				fmt.Print("       ")
+				for i := 0; i < 16; i += 1 {
+					fmt.Printf("v%x:%02x ", i, *c.getRegisterPointer(byte(i)))
+				}
+				fmt.Printf("\n       ir:%04x\n", c.ir)
 			}
 
 			// DECODE + EXECUTE
