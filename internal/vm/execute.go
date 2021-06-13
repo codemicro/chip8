@@ -75,35 +75,35 @@ func (c *Chip8) addConstantToRegister() {
 // setRegisterToRegister - 8XY0 set VX to VY
 func (c *Chip8) setRegisterToRegister() {
 	vx := c.getRegisterPointer(c.cir[0] & 0x0F)
-	vy := c.getRegisterPointer(c.cir[0] >> 4)
+	vy := c.getRegisterPointer(c.cir[1] >> 4)
 	*vx = *vy
 }
 
 // setRegisterToLogicalOr - 8XY1 set VX to logical OR of VX and VY
 func (c *Chip8) setRegisterToLogicalOr(){
 	vx := c.getRegisterPointer(c.cir[0] & 0x0F)
-	vy := c.getRegisterPointer(c.cir[0] >> 4)
+	vy := c.getRegisterPointer(c.cir[1] >> 4)
 	*vx = *vx | *vy
 }
 
 // setRegisterToLogicalAnd - 8XY2 set VX to logical AND of VX and VY
 func (c *Chip8) setRegisterToLogicalAnd(){
 	vx := c.getRegisterPointer(c.cir[0] & 0x0F)
-	vy := c.getRegisterPointer(c.cir[0] >> 4)
+	vy := c.getRegisterPointer(c.cir[1] >> 4)
 	*vx = *vx & *vy
 }
 
 // setRegisterToLogicalXor - 8XY3 set VX to logical XOR of VX and VY
 func (c *Chip8) setRegisterToLogicalXor(){
 	vx := c.getRegisterPointer(c.cir[0] & 0x0F)
-	vy := c.getRegisterPointer(c.cir[0] >> 4)
+	vy := c.getRegisterPointer(c.cir[1] >> 4)
 	*vx = *vx ^ *vy
 }
 
 // setRegisterToSum - 8XY4 set VX to the sum of VX and VY then set the carry flag as appropriate
 func (c *Chip8) setRegisterToSum() {
 	vx := c.getRegisterPointer(c.cir[0] & 0x0F)
-	vy := c.getRegisterPointer(c.cir[0] >> 4)
+	vy := c.getRegisterPointer(c.cir[1] >> 4)
 	vf := &c.vf
 
 	res := int(*vx) + int(*vy)
@@ -120,7 +120,7 @@ func (c *Chip8) setRegisterToSum() {
 // setRegisterToDifferenceA - 8XY5 set VX to VX - VY then set the carry flag as appropriate
 func (c *Chip8) setRegisterToDifferenceA() {
 	vx := c.getRegisterPointer(c.cir[0] & 0x0F)
-	vy := c.getRegisterPointer(c.cir[0] >> 4)
+	vy := c.getRegisterPointer(c.cir[1] >> 4)
 	vf := &c.vf
 
 	setCarry := *vx > *vy
@@ -141,7 +141,7 @@ func (c *Chip8) shiftRight() {
 	vf := &c.vf
 
 	if c.CopyRegistersOnShift {
-		vy := c.getRegisterPointer(c.cir[0] >> 4)
+		vy := c.getRegisterPointer(c.cir[1] >> 4)
 		*vx = *vy
 	}
 
@@ -158,7 +158,7 @@ func (c *Chip8) shiftLeft() {
 	vf := &c.vf
 
 	if c.CopyRegistersOnShift {
-		vy := c.getRegisterPointer(c.cir[0] >> 4)
+		vy := c.getRegisterPointer(c.cir[1] >> 4)
 		*vx = *vy
 	}
 
@@ -171,7 +171,7 @@ func (c *Chip8) shiftLeft() {
 // setRegisterToDifferenceB - 8XY7 set VX to VY - VX then set the carry flag as appropriate
 func (c *Chip8) setRegisterToDifferenceB() {
 	vx := c.getRegisterPointer(c.cir[0] & 0x0F)
-	vy := c.getRegisterPointer(c.cir[0] >> 4)
+	vy := c.getRegisterPointer(c.cir[1] >> 4)
 	vf := &c.vf
 
 	setCarry := *vx < *vy
@@ -335,4 +335,45 @@ func (c *Chip8) addToIndexRegister() {
 // getFontCharacter - FX29 set the index register to the address of the hex character in VX
 func (c *Chip8) getFontCharacter() {
 	c.ir = getFontCharacterLocation(*c.getRegisterPointer(c.cir[0] & 0x0F))
+}
+
+// convertToDecimal - FX33 take the value of VX, converts it to a denary number and the put each individual digit in the
+// memory location specified by the index register + the digit number.
+// Eg 0x9C -> 156 -> memory[ic] = 1, memory[ic+1] = 5, memory[ic+2] = 6
+func (c *Chip8) convertToDecimal() {
+	vxn := *c.getRegisterPointer(c.cir[0] & 0x0F)
+
+	x := vxn % 10
+	y := ((vxn - x) / 10) % 10
+	z := (vxn - x - y*10) / 100
+
+	c.memory[c.ir] = z
+	c.memory[c.ir+1] = y
+	c.memory[c.ir+2] = x
+}
+
+// storeMemory - FX55 store the value of each general purpose register from V0 to VX inclusive in consecutive memory
+// addresses starting from the current value of the index register. If IncrementIndexRegisterOnLoadSave is true, the
+// index register will be incremented as a result of this process. Else, a temporary variable will be used.
+func (c *Chip8) storeMemory() {
+	x := c.cir[0] & 0x0F
+	for i := byte(0x00); i <= x; i += 1 {
+		c.memory[c.ir + uint16(i)] = *c.getRegisterPointer(i)
+	}
+	if c.IncrementIndexRegisterOnLoadSave {
+		c.ir += uint16(x)
+	}
+}
+
+// loadMemory - FX65 loads the value of each general purpose register from V0 to VX inclusive from consecutive memory
+// addresses starting from the current value of the index register. If IncrementIndexRegisterOnLoadSave is true, the
+// index register will be incremented as a result of this process. Else, a temporary variable will be used.
+func (c *Chip8) loadMemory() {
+	x := c.cir[0] & 0x0F
+	for i := byte(0x00); i <= x; i += 1 {
+		*c.getRegisterPointer(i) = c.memory[c.ir + uint16(i)]
+	}
+	if c.IncrementIndexRegisterOnLoadSave {
+		c.ir += uint16(x)
+	}
 }

@@ -24,6 +24,10 @@ type Chip8 struct {
 	// DisableSetFlagOnIrOverflow affects `FX1E`. If true, `FX1E` will not set VF. Else, it will set VF accordingly if
 	// the index register "overflows" above 0x0FFF.
 	DisableSetFlagOnIrOverflow bool
+	// IncrementIndexRegisterOnLoadSave affects `FX55` and `FX65`. If true, the index register will be incremented when
+	// loading or saving registers to/from memory. Else, a temporary value will be indexed instead, and the index
+	// register will not be changed.
+	IncrementIndexRegisterOnLoadSave bool
 
 	ui              uiDriver
 	clockSpeedHertz int
@@ -45,7 +49,6 @@ type Chip8 struct {
 }
 
 func NewChip8(rom []byte, ui uiDriver, clockSpeedHertz int) *Chip8 {
-	// TODO: Font
 
 	c := &Chip8{
 		ui:              ui,
@@ -60,6 +63,23 @@ func NewChip8(rom []byte, ui uiDriver, clockSpeedHertz int) *Chip8 {
 	}
 
 	loadFont(&c.memory)
+
+	// original COSMAC VIP settings
+	//c.CopyRegistersOnShift = true
+	//c.VariableOffsetRegister = false
+	//c.DisableSetFlagOnIrOverflow = true
+	//c.IncrementIndexRegisterOnLoadSave = true
+
+	// Super Chip settings
+	//c.CopyRegistersOnShift = false
+	//c.VariableOffsetRegister = true
+	//c.DisableSetFlagOnIrOverflow = false
+	//c.IncrementIndexRegisterOnLoadSave = false
+
+	c.CopyRegistersOnShift = true
+	c.VariableOffsetRegister = false
+	c.DisableSetFlagOnIrOverflow = false
+	c.IncrementIndexRegisterOnLoadSave = false
 
 	return c
 }
@@ -234,6 +254,18 @@ MAINLOOP:
 				case 0x29:
 					// FX29 - set the index register to the address of the hex character in VX
 					c.getFontCharacter()
+				case 0x33:
+					// FX33 - take the value of VX, converts it to a denary number and the put each individual digit in
+					// the memory location specified by the index register + the digit number
+					c.convertToDecimal()
+				case 0x55:
+					// FX55 - store the value of each general purpose register from V0 to VX inclusive in consecutive
+					// memory addresses starting from the current value of the index register
+					c.storeMemory()
+				case 0x65:
+					// FX65 - loads the value of each general purpose register from V0 to VX inclusive from consecutive
+					// memory addresses starting from the current value of the index register
+					c.loadMemory()
 				default:
 					panic(fmt.Errorf("UNHANDLED at %x: %x\n", c.pc, c.cir))
 				}

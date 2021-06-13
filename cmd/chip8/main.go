@@ -16,7 +16,7 @@ func main() {
 	}
 
 	disp := display.NewDisplay(64, 32, 5, filepath.Base(filename))
-	//disp.Debug = true
+	// disp.Debug = true
 
 	vm := vm2.NewChip8(fcont, disp, 700)
 	// vm.Debug = true
