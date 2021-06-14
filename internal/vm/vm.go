@@ -78,6 +78,7 @@ func NewChip8(rom []byte, ui uiDriver, clockSpeedHertz int) *Chip8 {
 	//c.DisableSetFlagOnIrOverflow = false
 	//c.IncrementIndexRegisterOnLoadSave = false
 
+	// best compatibility mode? I think?
 	c.CopyRegistersOnShift = true
 	c.VariableOffsetRegister = false
 	c.DisableSetFlagOnIrOverflow = false

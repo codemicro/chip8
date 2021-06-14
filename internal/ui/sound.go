@@ -7,7 +7,6 @@ import (
 
 const (
 	sampleRate   = 44100
-	frequency    = 440
 )
 
 var audioContext = audio.NewContext(sampleRate)
@@ -15,6 +14,7 @@ var audioContext = audio.NewContext(sampleRate)
 type stream struct {
 	position  int64
 	remaining []byte
+	toneFrequency int
 }
 
 func (s *stream) Read(buf []byte) (int, error) {
@@ -30,7 +30,7 @@ func (s *stream) Read(buf []byte) (int, error) {
 		buf = make([]byte, len(origBuf)+4-len(origBuf)%4)
 	}
 
-	const length = int64(sampleRate / frequency)
+	var length = int64(sampleRate / s.toneFrequency)
 	p := s.position / 4
 	for i := 0; i < len(buf)/4; i++ {
 		const max = 32767

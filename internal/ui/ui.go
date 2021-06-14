@@ -11,6 +11,7 @@ type UI struct {
 	Debug bool
 
 	audioPlayer *audio.Player
+	toneFrequency int
 
 	width, height int
 	scale         int
@@ -20,9 +21,9 @@ type UI struct {
 	currentDisplay [32][64]bool
 }
 
-func NewUI(width, height, scale int, windowTitle string) (*UI, error) {
+func NewUI(width, height, scale int, windowTitle string, toneFrequency int) (*UI, error) {
 
-	p, err := audio.NewPlayer(audioContext, &stream{})
+	p, err := audio.NewPlayer(audioContext, &stream{toneFrequency: toneFrequency})
 	if err != nil {
 		return nil, err
 	}
@@ -34,6 +35,7 @@ func NewUI(width, height, scale int, windowTitle string) (*UI, error) {
 		windowTitle: windowTitle,
 
 		audioPlayer: p,
+		toneFrequency: toneFrequency,
 	}
 	return d, nil
 }
