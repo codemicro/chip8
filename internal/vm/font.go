@@ -1,3 +1,8 @@
+// https://github.com/codemicro/chip8
+// Copyright (c) 2021, codemicro and contributors
+// SPDX-License-Identifier: MIT
+// Filename: internal/vm/font.go
+
 package vm
 
 var font = [16][5]byte{

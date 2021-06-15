@@ -1,0 +1,11 @@
+headerText = """https://github.com/codemicro/chip8
+Copyright (c) {{ .Year }}, codemicro and contributors
+SPDX-License-Identifier: MIT
+Filename: {{ .Filename }}"""
+
+spec = [
+    { regex = '^.+\.go', comment = "//" },
+]
+
+[options]
+fullFilepath = true
