@@ -1,10 +1,13 @@
 package ui
 
 import (
+	"errors"
 	"github.com/hajimehoshi/ebiten/v2"
 	"github.com/hajimehoshi/ebiten/v2/audio"
 	"github.com/hajimehoshi/ebiten/v2/inpututil"
 	"image/color"
+	"strconv"
+	"strings"
 )
 
 type UI struct {
@@ -12,6 +15,9 @@ type UI struct {
 
 	audioPlayer *audio.Player
 	toneFrequency int
+
+	fgColour color.Color
+	bgColour color.Color
 
 	width, height int
 	scale         int
@@ -21,7 +27,17 @@ type UI struct {
 	currentDisplay [32][64]bool
 }
 
-func NewUI(width, height, scale int, windowTitle string, toneFrequency int) (*UI, error) {
+func NewUI(width, height, scale int, windowTitle string, toneFrequency int, fgColour, bgColour string) (*UI, error) {
+
+	fg, err := hexStringToColor(fgColour)
+	if err != nil {
+		return nil, err
+	}
+
+	bg, err := hexStringToColor(bgColour)
+	if err != nil {
+		return nil, err
+	}
 
 	p, err := audio.NewPlayer(audioContext, &stream{toneFrequency: toneFrequency})
 	if err != nil {
@@ -36,8 +52,65 @@ func NewUI(width, height, scale int, windowTitle string, toneFrequency int) (*UI
 
 		audioPlayer: p,
 		toneFrequency: toneFrequency,
+
+		fgColour: fg,
+		bgColour: bg,
 	}
 	return d, nil
+}
+
+func hexStringToColor(hx string) (color.Color, error) {
+	hx = strings.TrimPrefix(hx, "#")
+
+	if !(len(hx) == 6 || len(hx) == 3) {
+		return nil, errors.New("invalid colour")
+	}
+
+	ston := func(y string) (uint8, error) {
+		l, err := strconv.ParseInt(y, 16, 9) // 9 seems to play nicely with uint8, whereas 8 does not
+		return uint8(l), err
+	}
+
+	var rs, gs, bs string
+
+	switch len(hx) {
+	case 6:
+		rs = hx[0:2]
+		gs = hx[2:4]
+		bs = hx[4:6]
+	case 3:
+		dbf := func(x uint8) string {
+			y := string(x)
+			return y + y
+		}
+
+		rs = dbf(hx[0])
+		gs = dbf(hx[1])
+		bs = dbf(hx[2])
+	default:
+		return nil, errors.New("invalid colour")
+	}
+
+	r, err := ston(rs)
+	if err != nil {
+		return nil, err
+	}
+
+	g, err := ston(gs)
+	if err != nil {
+		return nil, err
+	}
+
+	b, err := ston(bs)
+	if err != nil {
+		return nil, err
+	}
+
+	return color.RGBA{
+		R: r,
+		G: g,
+		B: b,
+	}, nil
 }
 
 func (*UI) Update() error {
@@ -59,20 +132,10 @@ func (d *UI) Draw(screen *ebiten.Image) {
 						R: 255,
 					}
 				} else {
-					// c = color.White
-					c = color.RGBA{
-						R: 0x3D,
-						G: 0x80,
-						B: 0x26,
-					}
+					c = d.fgColour
 				}
 			} else {
-				// c = color.Black
-				c = color.RGBA{
-					R: 0xF9,
-					G: 0xFF,
-					B: 0xB3,
-				}
+				c = d.bgColour
 			}
 			screen.Set(x, y, c)
 		}
