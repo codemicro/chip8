@@ -1,0 +1,72 @@
+SYNTAX
+===============================================================================
+@define label n         compile time constant, labelled and value n
+@macro label:           macro with label
+    instructions here
+@subroutine label:      subroutine definition with label
+    instructions here
+
+$n                      register n
+n                       constant/address n (as hex if prefaced by 0x, as binary
+                        if prefaced by 0b or as denary if not prefaced with
+                        either)
+
+; blah                  line comment
+
+INSTRUCTION FORMAT
+===============================================================================
+[label] opcode [operand [operand [operand]]] [comment]
+
+INSTRUCTIONS
+===============================================================================
+clr     00E0    Clear display
+
+rtn     00EE    Return from subroutine
+jmp     1NNN    Jump to address NNN
+call    2NNN    Call subroutine at address NNN
+
+src     3XNN    Skip next instruction if VX == NN
+srcx    4XNN    Skip next instruction if VX != NN
+srr     5XY0    Skip next instruction if VX == VY
+srrx    9XY0    Skip next instruction if VX != VY
+
+load    6XNN    Set VX to NN
+add     7XNN    Add NN to VX
+
+copy    8XY0    Set VX to VY
+or      8XY1    Set VX to VX or VY
+and     8XY2    Set VX to VX and VY
+xor     8XY3    Set VX to VX xor VY
+
+sum     8XY4    Add VY to VX
+sub     8XY5    Subtract VY from VX
+bsub    8XY7    Set VX to VY - VX
+
+rsh     8XY6    Shift VX right by one
+lsh     8XYE    Shift VX left by one
+
+idx     ANNN    Set index register to NNN
+idxs    FX1E    Add VX to index register
+jmpo    BNNN    Jump with offset
+rand    CXNN    Generate random number, AND with NN and store in VX
+
+disp    DXYN    Show sprite
+
+skp     EX9E    Skip next instruction if they key stored in VX is pressed
+skpx    EXA1    Skip next instruction if they key stored in VX is not pressed
+inp     FX0A    Block, store the next keypress in VX
+
+dget    FX07    Set VX to the value of the delay timer
+dset    FX15    Set the delay timer to the value of VX
+sset    FX18    Set the sound timer to the value of VX
+
+char    FX29    Set index register to the location of the sprite for the 
+                character stored in VX
+
+num     FX33    Stores the binary coded decimal representation of VX in the 
+                memory addresses specified by the index register
+
+mset    FX55    Stores the value of V0 to VX inclusive in memory starting at
+                the address in the index register
+mget    FX65    Fils V0 to VX with values from memory starting with the address
+                in the index register
