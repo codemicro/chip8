@@ -18,7 +18,7 @@ import (
 )
 
 func Build() error {
-	const buildPackage = "github.com/codemicro/chip8/cmd/chip8"
+	const buildPackage = "github.com/codemicro/chip8/cmd/c8run"
 
 	outputDir := filepath.Join("bin", fmt.Sprintf("%s-%s", exmg.GetTargetOS(), exmg.GetTargetArch()))
 	basePackageName := filepath.Base(buildPackage)

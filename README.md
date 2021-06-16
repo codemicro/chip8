@@ -20,13 +20,13 @@ git clone https://github.com/codemicro/chip8.git
 cd chip8
 
 mage build
-# output in ./bin/yourOS-yourPlatform/chip8
+# output in ./bin/yourOS-yourPlatform/
 ```
 
 ## Run
 
 ```
-Usage: chip8 [--verbose] [--scale SCALE] [--frequency FREQUENCY] [--clock CLOCK] [--foreground FOREGROUND] [--background BACKGROUND] INPUTFILE
+Usage: c8run [--verbose] [--scale SCALE] [--frequency FREQUENCY] [--clock CLOCK] [--foreground FOREGROUND] [--background BACKGROUND] INPUTFILE
 
 Positional arguments:
   INPUTFILE
