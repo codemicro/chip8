@@ -45,3 +45,7 @@ Options:
                          background hex colour [default: F9FFB3]
   --help, -h             display this help and exit
 ```
+
+## To-do
+
+* [ ] Full unit tests for VM
