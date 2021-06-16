@@ -41,7 +41,7 @@ func (u *uid) GetPressedKeys() []uint8 {
 	return nil
 }
 func (u *uid) StartTone() {}
-func (u *uid) StopTone() {}
+func (u *uid) StopTone()  {}
 
 func Test_ClearScreen(t *testing.T) {
 	c, u := vmFixtureWithoutTick(nil)

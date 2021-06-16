@@ -8,8 +8,8 @@ package main
 import (
 	"fmt"
 	"github.com/alexflint/go-arg"
-	"github.com/codemicro/chip8/internal/ui"
-	vm2 "github.com/codemicro/chip8/internal/vm"
+	"github.com/codemicro/chip8/internal/emulator/ui"
+	vm2 "github.com/codemicro/chip8/internal/emulator/vm"
 	"io/ioutil"
 	"os"
 	"path/filepath"
