@@ -1,6 +1,7 @@
 SYNTAX
 ===============================================================================
 @define label n         compile time constant, labelled and value n
+@include filename       include another file
 @macro label:           macro with label
     instructions here
 @subroutine label:      subroutine definition with label
@@ -30,7 +31,7 @@ srcx    4XNN    Skip next instruction if VX != NN
 srr     5XY0    Skip next instruction if VX == VY
 srrx    9XY0    Skip next instruction if VX != VY
 
-load    6XNN    Set VX to NN
+set     6XNN    Set VX to NN
 add     7XNN    Add NN to VX
 
 copy    8XY0    Set VX to VY
@@ -66,7 +67,7 @@ char    FX29    Set index register to the location of the sprite for the
 num     FX33    Stores the binary coded decimal representation of VX in the 
                 memory addresses specified by the index register
 
-mset    FX55    Stores the value of V0 to VX inclusive in memory starting at
+load    FX55    Stores the value of V0 to VX inclusive in memory starting at
                 the address in the index register
-mget    FX65    Fils V0 to VX with values from memory starting with the address
+save    FX65    Fils V0 to VX with values from memory starting with the address
                 in the index register
