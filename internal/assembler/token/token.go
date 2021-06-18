@@ -5,7 +5,10 @@
 
 package token
 
-import "fmt"
+import (
+	"fmt"
+	"strings"
+)
 
 type Type uint8
 
@@ -47,8 +50,8 @@ func (o *Operand) String() string {
 type Instruction struct {
 	Label  string
 	Opcode string
-	Arg1   *Operand
-	Arg2   *Operand
+	Arg1   *Operand // Arg1 may be nil
+	Arg2   *Operand // Arg2 may be nil
 }
 
 func (i *Instruction) Type() Type { return TypeInstruction }
@@ -60,4 +63,57 @@ func (i *Instruction) String() string {
 		i.Arg1.String(),
 		i.Arg2.String(),
 	)
+}
+
+type Define struct {
+	Label string
+	Value *Operand // Value may not be nil
+}
+
+func (d *Define) Type() Type { return TypeDefine }
+func (d *Define) String() string { return fmt.Sprintf("define %s as %s", d.Label, d.Value.String()) }
+
+type Include struct {
+	Filename string
+}
+
+func (i *Include) Type() Type { return TypeInclude }
+func (i *Include) String() string { return fmt.Sprintf("include %s", i.Filename) }
+
+type Argument struct {
+	ArgumentType Type
+	Label        string
+}
+
+func (a *Argument) String() string {
+
+	if a == nil {
+		return ""
+	}
+
+	var chr string
+	if a.ArgumentType == TypeRegister {
+		chr = "$"
+	}
+	return fmt.Sprintf("%s%s", chr, a.Label)
+}
+
+type Macro struct {
+	Statements []*Instruction
+	Label string
+	Arguments []*Argument // Arguments may not have nil values
+}
+
+func (m *Macro) Type() Type { return TypeMacro }
+func (m *Macro) String() string {
+	var sb strings.Builder
+
+	sb.WriteString(fmt.Sprintf("macro %s %v\n", m.Label, m.Arguments))
+
+	for _, ins := range m.Statements {
+		sb.WriteString("  ")
+		sb.WriteString(ins.String())
+	}
+
+	return sb.String()
 }

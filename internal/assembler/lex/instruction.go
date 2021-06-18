@@ -30,8 +30,6 @@ func lexInstruction(peek func(offset int) rune, consume func() rune) (*token.Ins
 lexLoop:
 	for peek(0) != 0 {
 
-		fmt.Println(string(buffer), state, string(peek(0)), peek(0), isWhitespace(peek(0)))
-
 		switch state {
 		case label:
 			if isWhitespace(peek(0)) {
@@ -39,21 +37,22 @@ lexLoop:
 				ins.Label = string(buffer)
 				buffer = nil
 				state = opcode
-			} else if peek(0) == ':' && peek(1) == '\n' && isWhitespace(peek(2)) {
+			} else if peek(0) == ':' && peek(1) == '\n' && isWhitespace(peek(2)) { // label, colon, newline format
 				consume()
 				consume()
 				consume()
 				ins.Label = string(buffer)
 				buffer = nil
 				state = opcode
+			} else if !isValidIdentifier(peek(0)) {
+				return nil, fmt.Errorf("disallowed character %#v in label", string(peek(0)))
 			} else {
 				buffer = append(buffer, consume())
 			}
-
 		case opcode:
-			opc, ok := lexOpcode(peek, consume)
-			if !ok {
-				return nil, errors.New("expecting opcode")
+			opc, err := lexOpcode(peek, consume)
+			if err != nil {
+				return nil, err
 			}
 			if x := peek(0); isWhitespace(x) {
 				consume()
@@ -64,13 +63,16 @@ lexLoop:
 				ins.Opcode = strings.ToLower(opc)
 				break lexLoop
 			} else {
-				return nil, fmt.Errorf("unexpected character %s, expecting newline or operand", string(peek(0)))
+				return nil, fmt.Errorf("unexpected character %#v, expecting newline or operand", string(peek(0)))
 			}
 
 		case operand:
-			if x := peek(0); x == ';' || x == '\n' {
+			if x := peek(0); x == ';' {
 				consume()
 				state = comment
+			} else if  x == '\n' {
+				consume()
+				break lexLoop
 			}
 
 			if isWhitespace(peek(0)) {
@@ -83,7 +85,7 @@ lexLoop:
 				break
 			}
 
-			opa, err := lexOperand(peek, consume)
+			opa, err := lexValue(peek, consume)
 			if err != nil {
 				return nil, err
 			}
@@ -95,36 +97,40 @@ lexLoop:
 			}
 
 		case comment:
-			break lexLoop
+			if peek(0) == '\n' || peek(0) == 0 {
+				consume()
+				break lexLoop
+			}
+			consume()
 		}
 	}
 
 	return &ins, nil
 }
 
-func lexOpcode(peek func(offset int) rune, consume func() rune) (string, bool) {
+func lexOpcode(peek func(offset int) rune, consume func() rune) (string, error) {
 	var o string
 	for len(o) <= 4 {
 		if x := peek(0); isWhitespace(x) || x == '\n' || x == 0 {
 			if len(o) == 0 {
-				return "", false
+				return "", errors.New("expecting opcode")
 			}
-			return o, true
+			return o, nil
 		}
 		o += string(consume())
 	}
-	return o, true
+	return o, nil
 }
 
-func lexOperand(peek func(offset int) rune, consume func() rune) (*token.Operand, error) {
+func lexValue(peek func(offset int) rune, consume func() rune) (*token.Operand, error) {
 
 	var buf []rune
 
 	for {
-		if x := peek(0); isWhitespace(x) || x == '\n' {
+		if x := peek(0); isWhitespace(x) || x == '\n' || (x == 0 && len(buf) != 0) {
 			break
 		} else if x == 0 {
-			return nil, errors.New("EOF when parsing operand")
+			return nil, errors.New("EOF when parsing value")
 		}
 		buf = append(buf, consume())
 	}

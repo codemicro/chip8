@@ -2,10 +2,14 @@ SYNTAX
 ===============================================================================
 @define label n         compile time constant, labelled and value n
 @include filename       include another file
-@macro label:           macro with label
-    instructions here
+
+@macro label $a b:      macro with label
+    instructions here   in this case, $a is a register and can only be a register
+@endmacro
+
 @subroutine label:      subroutine definition with label
     instructions here
+@endsubroutine
 
 $n                      register n
 n                       constant/address n (as hex if prefaced by 0x, as binary

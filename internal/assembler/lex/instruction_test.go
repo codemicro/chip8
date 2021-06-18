@@ -11,7 +11,7 @@ import (
 )
 
 func Test_lexInstruction(t *testing.T) {
-	input := []byte("main:\n blah $2 1 ; hi there!")
+	input := []byte("main: blah $2 1 ; hi there!")
 
 	inputLength := len(input)
 	var index int
@@ -35,7 +35,7 @@ func Test_lexInstruction(t *testing.T) {
 	if err != nil {
 		fmt.Println(err)
 	} else {
-		fmt.Println(ins.String())
+		fmt.Printf("%#v %#v %#v\n", ins, ins.Arg1, ins.Arg2)
 	}
 
 }
