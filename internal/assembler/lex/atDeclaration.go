@@ -1,3 +1,8 @@
+// https://github.com/codemicro/chip8
+// Copyright (c) 2021, codemicro and contributors
+// SPDX-License-Identifier: MIT
+// Filename: internal/assembler/lex/atDeclaration.go
+
 package lex
 
 import (
@@ -31,7 +36,8 @@ func lexAtDeclaration(peek func(offset int) rune, consume func() rune) (token.To
 		consumeMultiple(consume, len(keywordMacro))
 		return lexMacro(peek, consume)
 	} else if strings.EqualFold(peekMultiple(peek, 0, len(keywordSubroutine)), keywordSubroutine) {
-		// TODO: lexSubroutine
+		consumeMultiple(consume, len(keywordSubroutine))
+		return lexSubroutine(peek, consume)
 	}
 
 	return nil, errors.New("unknown @ declaration")
@@ -190,7 +196,7 @@ func lexMacro(peek func(offset int) rune, consume func() rune) (*token.Macro, er
 		}
 		fmt.Println(ins.Opcode)
 		if ins.Label != "" {
-			return nil, errors.New("macros cannot have labels in the instruction body")
+			return nil, errors.New("macros cannot have labels in the macro body")
 		}
 		instructions = append(instructions, ins)
 
@@ -200,8 +206,76 @@ func lexMacro(peek func(offset int) rune, consume func() rune) (*token.Macro, er
 	}
 
 	return &token.Macro{
-		Statements: instructions,
-		Label:      string(label),
-		Arguments:  args,
+		Instructions: instructions,
+		Label:        string(label),
+		Arguments:    args,
+	}, nil
+}
+
+func lexSubroutine(peek func(offset int) rune, consume func() rune) (*token.Subroutine, error) {
+
+	const keywordEndSubroutine = "@endsubroutine"
+
+	// lex label
+
+	if peek(0) != ' ' {
+		return nil, errors.New("expecting label for @subroutine")
+	}
+	consume()
+
+	// lex label
+
+	var label []rune
+
+	for peek(0) != ':' {
+		fmt.Println(string(peek(0)))
+		if isValidIdentifier(peek(0)) {
+			label = append(label, consume())
+		} else if peek(0) == 0 {
+			return nil, errors.New("unexpected EOF when parsing subroutine")
+		} else {
+			return nil, fmt.Errorf("disallowed character '%v' in label", string(peek(0)))
+		}
+	}
+	consume()
+
+	if peek(0) == '\n' {
+		consume()
+	}
+
+	// lex instructions
+
+	var instructions []*token.Instruction
+
+	for {
+		fmt.Println(peekMultiple(peek, 0, len(keywordEndSubroutine)))
+
+		if peekMultiple(peek, 0, len(keywordEndSubroutine)) == keywordEndSubroutine {
+			consumeMultiple(consume, len(keywordEndSubroutine))
+			break
+		}
+
+		if peek(0) == 0 {
+			return nil, errors.New("unexpected EOF while parsing subroutine")
+		}
+
+		ins, err := lexInstruction(peek, consume)
+		if err != nil {
+			return nil, err
+		}
+		fmt.Println(ins.Opcode)
+		if ins.Label != "" {
+			return nil, errors.New("subroutines cannot have labels in the subroutine body")
+		}
+		instructions = append(instructions, ins)
+
+		if peek(0) == '\n' {
+			consume()
+		}
+	}
+
+	return &token.Subroutine{
+		Instructions: instructions,
+		Label:        string(label),
 	}, nil
 }

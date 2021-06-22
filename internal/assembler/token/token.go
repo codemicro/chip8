@@ -99,9 +99,9 @@ func (a *Argument) String() string {
 }
 
 type Macro struct {
-	Statements []*Instruction
-	Label string
-	Arguments []*Argument // Arguments may not have nil values
+	Instructions []*Instruction
+	Label        string
+	Arguments    []*Argument // Arguments may not have nil values
 }
 
 func (m *Macro) Type() Type { return TypeMacro }
@@ -110,7 +110,26 @@ func (m *Macro) String() string {
 
 	sb.WriteString(fmt.Sprintf("macro %s %v\n", m.Label, m.Arguments))
 
-	for _, ins := range m.Statements {
+	for _, ins := range m.Instructions {
+		sb.WriteString("  ")
+		sb.WriteString(ins.String())
+	}
+
+	return sb.String()
+}
+
+type Subroutine struct {
+	Label string
+	Instructions []*Instruction
+}
+
+func (s *Subroutine) Type() Type { return TypeSubroutine }
+func (s *Subroutine) String() string {
+	var sb strings.Builder
+
+	sb.WriteString(fmt.Sprintf("macro %s\n", s.Label))
+
+	for _, ins := range s.Instructions {
 		sb.WriteString("  ")
 		sb.WriteString(ins.String())
 	}

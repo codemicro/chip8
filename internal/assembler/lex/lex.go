@@ -7,43 +7,57 @@ package lex
 
 import (
 	"fmt"
-	"go/token"
+	"github.com/codemicro/chip8/internal/assembler/token"
 )
 
 func Lex(input []byte) ([]token.Token, error) {
 
-	//inputLength := len(input)
-	//var index, status int
-	//
-	//peek := func(offset int) rune {
-	//	if index+offset >= inputLength {
-	//		return 0
-	//	}
-	//	return rune(input[index+offset])
-	//}
-	//
-	//consume := func() rune {
-	//	if index >= inputLength {
-	//		return 0
-	//	}
-	//	index += 1
-	//	return rune(input[index-1])
-	//}
-	//
-	//const (
-	//	Instruction = iota
-	//)
-	//
-	//for index < inputLength {
-	//
-	//	switch status {
-	//	case Instruction:
-	//
-	//	}
-	//
-	//}
+	inputLength := len(input)
+	var index int
 
-	return nil, nil
+	peek := func(offset int) rune {
+		if index+offset >= inputLength {
+			return 0
+		}
+		return rune(input[index+offset])
+	}
+
+	consume := func() rune {
+		if index >= inputLength {
+			return 0
+		}
+		index += 1
+		return rune(input[index-1])
+	}
+
+	var tokens []token.Token
+
+	for index < inputLength {
+		if peekMultiple(peek, 0, 2) == "\n\n" {
+			fmt.Println("Hi!")
+			consumeMultiple(consume, 2)
+		}
+		if peek(0) == '@' {
+			tk, err := lexAtDeclaration(peek, consume)
+			if err != nil {
+				return nil, err
+			}
+			tokens = append(tokens, tk)
+		} else if peek(0) == ';' {
+			for peek(0) != '\n' {
+				consume()
+			}
+			consume()
+		} else {
+			tk, err := lexInstruction(peek, consume)
+			if err != nil {
+				return nil, err
+			}
+			tokens = append(tokens, tk)
+		}
+	}
+
+	return tokens, nil
 }
 
 func lexLabel(peek func(offset int) rune, consume func() rune) (string, error) {
